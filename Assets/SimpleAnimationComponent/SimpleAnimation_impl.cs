@@ -62,6 +62,10 @@ public partial class SimpleAnimation: MonoBehaviour, IAnimationClipSource
             }
         }
     }
+
+    /// <summary>
+    /// 實作SimpleAnimation使用的StateInfo，是一個proxy，內容還是由SimpleAnimationPlayable.IState所提供。
+    /// </summary>
     private class StateImpl : State
     {
         public StateImpl(SimpleAnimationPlayable.IState handle, SimpleAnimation component)
@@ -145,6 +149,9 @@ public partial class SimpleAnimation: MonoBehaviour, IAnimationClipSource
         public bool defaultState;
     }
 
+    /// <summary>
+    /// Check if graph is playing, and play it if not.
+    /// </summary>
     protected void Kick()
     {
         if (!m_IsPlaying)
@@ -161,6 +168,9 @@ public partial class SimpleAnimation: MonoBehaviour, IAnimationClipSource
     protected bool m_Initialized;
     protected bool m_IsPlaying;
 
+    /// <summary>
+    /// 管理所有Playable的主要playable
+    /// </summary>
     protected SimpleAnimationPlayable m_Playable;
 
     [SerializeField]
@@ -219,6 +229,7 @@ public partial class SimpleAnimation: MonoBehaviour, IAnimationClipSource
         m_Animator.cullingMode = m_CullingMode;
         m_Graph = PlayableGraph.Create();
         m_Graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
+        // 先自行new一個出來再當作template塞進Create方法(應該是為了確保Constructor執行)
         SimpleAnimationPlayable template = new SimpleAnimationPlayable();
 
         var playable = ScriptPlayable<SimpleAnimationPlayable>.Create(m_Graph, template, 1);
@@ -246,6 +257,7 @@ public partial class SimpleAnimation: MonoBehaviour, IAnimationClipSource
 
         EnsureDefaultStateExists();
 
+        // 綁定m_Aniamtor採用起點為m_Playable的graph(懶人寫法不需要再自行處理PlayableOutput)
         AnimationPlayableUtilities.Play(m_Animator, m_Playable.playable, m_Graph);
         Play();
         Kick();
@@ -274,8 +286,12 @@ public partial class SimpleAnimation: MonoBehaviour, IAnimationClipSource
         }
     }
 
+    /// <summary>
+    /// 當Playable跑完時，就跑m_Graph.Stop()以及設定m_IsPlaying=false
+    /// </summary>
     private void OnPlayableDone()
     {
+        Debug.Log("Done");
         m_Graph.Stop();
         m_IsPlaying = false;
     }

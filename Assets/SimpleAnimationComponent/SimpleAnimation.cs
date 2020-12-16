@@ -7,6 +7,9 @@ using UnityEngine.Playables;
 [RequireComponent(typeof(Animator))]
 public partial class SimpleAnimation: MonoBehaviour
 {
+    /// <summary>
+    /// State的介面，提供類似於AnimatorStateInfo的資訊
+    /// </summary>
     public interface State
     {
         bool enabled { get; set; }

@@ -7,9 +7,23 @@ using System;
 
 public partial class SimpleAnimationPlayable : PlayableBehaviour
 {
+    /// <summary>
+    /// 用於標記目前SimpleAnimationPlayable的版本，每當clip被添加或刪除時m_StatesVersion都會+1。
+    /// SimpleAnimationPlayable.GetStates()會得到StateEnumerable物件，
+    /// 而該物件的GetEnumerator()方法所得到的StateEnumerator在被創建時會將這個版本號記錄下來，
+    /// 之後每當操作StateEnumerator時他都會執行IsValid()檢查當初創建的版本號與SimpleAnimationPlayable目前的版本是否一致，
+    /// 如果不一致則代表playable內的clip有更動，因此那個StateEnumerator是invalid的而拋出例外。
+    /// </summary>
     private int m_StatesVersion = 0;
 
+    /// <summary>
+    /// State有變動，因此上升版本。
+    /// </summary>
     private void InvalidateStates() { m_StatesVersion++; }
+
+    /// <summary>
+    /// SimpeAnimationPlayable.GetStates()的IEnumerable形式，之後可以透過GetEnumerator()取得IEnumerator以方便做遍歷。
+    /// </summary>
     private class StateEnumerable: IEnumerable<IState>
     {
         private SimpleAnimationPlayable m_Owner;
@@ -40,6 +54,10 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
                 Reset();
             }
 
+            /// <summary>
+            /// 檢查當初創建的SimpleAnimationPlayable版本號與目前的版本號是否一致，
+            /// 如果不一致則代表playable內的clip有更動，所以會成為invalid的Enumerator。
+            /// </summary>
             private bool IsValid() { return m_Owner != null && m_Version == m_Owner.m_StatesVersion; }
 
             IState GetCurrentHandle(int index)
@@ -83,6 +101,9 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
         }
     }
     
+    /// <summary>
+    /// State的介面，提供類似於AnimatorStateInfo的資訊
+    /// </summary>
     public interface IState
     {
         bool IsValid();
@@ -106,6 +127,10 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
         WrapMode wrapMode { get; }
     }
 
+    /// <summary>
+    /// 實作IState的一層Proxy，內部主要是由 SimpleAnimationPlayable.StateInfo 組成。
+    /// 是用來給予SimpleAnimationPlayable以外的類別使用StateInfo
+    /// </summary>
     public class StateHandle : IState
     {
         public StateHandle(SimpleAnimationPlayable s, int index, Playable target)
@@ -282,8 +307,14 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
             m_WrapMode = wrapMode;
         }
 
+        /// <summary>
+        /// 取得playable的Time屬性
+        /// </summary>
+        /// <returns></returns>
         public float GetTime()
         {
+            // lazy getter: 如果在一次更新中已經取得過time了，則無須再次GetTime()。
+            // 當State更新時(PrepareFrame()時)，會呼叫InvalidateTime()來使得m_TimeIsUpToDate=false
             if (m_TimeIsUpToDate)
                 return m_Time;
 
@@ -319,14 +350,17 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
 
         public void Pause()
         {
-            m_Playable.SetPlayState(PlayState.Paused);
+            m_Playable.Pause();
         }
 
         public void Play()
         {
-            m_Playable.SetPlayState(PlayState.Playing);
+            m_Playable.Play();
         }
 
+        /// <summary>
+        /// 停止播放此State
+        /// </summary>
         public void Stop()
         {
             m_FadeSpeed = 0f;
@@ -340,6 +374,9 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
             }
         }
 
+        /// <summary>
+        /// 設定State的weight，並重置Fading相關參數。
+        /// </summary>
         public void ForceWeight(float weight)
         {
            m_TargetWeight = weight;
@@ -348,6 +385,10 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
            SetWeight(weight);
         }
 
+        /// <summary>
+        /// 設定State的weight並記錄dirty。
+        /// 這個方法並不會即時更新Playable的weight。
+        /// </summary>
         public void SetWeight(float weight)
         {
             m_Weight = weight;
@@ -361,6 +402,9 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
             m_TargetWeight = weight;
         }
 
+        /// <summary>
+        /// 從graph中刪除這個state的playable
+        /// </summary>
         public void DestroyPlayable()
         {
             if (m_Playable.IsValid())
@@ -375,6 +419,9 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
             m_IsClone = true;
         }
 
+        /// <summary>
+        /// 設定此state是否啟用(能否被播放)
+        /// </summary>
         public bool enabled
         {
             get { return m_Enabled; }
@@ -472,7 +519,9 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
 
         private WrapMode m_WrapMode;
 
-        //Clone information
+        /// <summary>
+        /// This state is a clone of other state.
+        /// </summary>
         public bool isClone
         {
             get { return m_IsClone; }
@@ -480,6 +529,9 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
 
         private bool m_IsClone;
 
+        /// <summary>
+        /// 如果這個State是一個clone且它已經被Stop()了，則這個flag就會為true。
+        /// </summary>
         public bool isReadyForCleanup
         {
             get { return m_ReadyForCleanup; }
@@ -487,12 +539,15 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
 
         private bool m_ReadyForCleanup;
 
+        /// <summary>
+        /// The original state which this clone as.
+        /// </summary>
         public StateHandle parentState
         {
             get { return m_ParentState; }
         }
 
-        public StateHandle m_ParentState;
+        private StateHandle m_ParentState;
 
         public bool enabledDirty { get { return m_EnabledDirty; } }
         public bool weightDirty { get { return m_WeightDirty; } }
@@ -506,6 +561,9 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
         private bool m_WeightDirty;
         private bool m_EnabledDirty;
 
+        /// <summary>
+        /// Indicate the m_Time is invalid now.
+        /// </summary>
         public void InvalidateTime() { m_TimeIsUpToDate = false; }
         private bool m_TimeIsUpToDate;
     }
@@ -536,6 +594,10 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
             m_States = new List<StateInfo>();
         }
 
+        /// <summary>
+        /// 生成一個新的StateInfo並試圖找m_States內為null的位置插入，若沒有則Add至最後。
+        /// </summary>
+        /// <returns></returns>
         public StateInfo InsertState()
         {
             StateInfo state = new StateInfo();
@@ -560,6 +622,10 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
             return m_States.FindIndex(s => s != null && s.enabled) != -1;
         }
 
+        /// <summary>
+        /// 從Graph中完全移除指定的State
+        /// </summary>
+        /// <param name="index"></param>
         public void RemoveState(int index)
         {
             StateInfo removed = m_States[index];
@@ -583,6 +649,11 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
             return removed;
         }
 
+        /// <summary>
+        /// 透過List<T>.FindIndex()搜尋名稱符合的state
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
         public StateInfo FindState(string name)
         {
             int index = m_States.FindIndex(s => s != null && s.stateName == name);
@@ -689,6 +760,11 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
             m_States[index].stateName = name;
         }
 
+        /// <summary>
+        /// 停止播放State，如果cleanup為true則會將State從graph中移除
+        /// </summary>
+        /// <param name="index"></param>
+        /// <param name="cleanup"></param>
         public void StopState(int index, bool cleanup)
         {
             if (cleanup)
@@ -712,6 +788,9 @@ public partial class SimpleAnimationPlayable : PlayableBehaviour
         }
 
         public StateHandle state;
+        /// <summary>
+        /// How much time the state fading takes.
+        /// </summary>
         public float fadeTime;
     }
 

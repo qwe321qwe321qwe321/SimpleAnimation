@@ -35,6 +35,8 @@ public class SimpleAnimationTransitions : MonoBehaviour {
             case AnimationType.SimplePlayable:
                 simpleAnimationComponent.AddClip(clip, "A");
                 simpleAnimationComponent.AddClip(clip, "B");
+                var state = simpleAnimationComponent.GetState("B");
+                state.speed = 2.0f;
                 break;
             case AnimationType.StateMachine:
                 break;
@@ -43,7 +45,7 @@ public class SimpleAnimationTransitions : MonoBehaviour {
         }
         
 
-        while(true)
+        //while(true)
         {
             switch (animationType)
             {
@@ -51,7 +53,9 @@ public class SimpleAnimationTransitions : MonoBehaviour {
                     animationComponent.Play("A");
                     break;
                 case AnimationType.SimplePlayable:
-                    simpleAnimationComponent.Play("A");
+                    simpleAnimationComponent.CrossFade("B", 0.2f);
+                    simpleAnimationComponent.CrossFadeQueued("A", 10.0f, QueueMode.CompleteOthers);
+                    simpleAnimationComponent.CrossFadeQueued("B", 10f, QueueMode.CompleteOthers);
                     break;
                 case AnimationType.StateMachine:
                     animatorComponent.Play("A");
@@ -67,7 +71,7 @@ public class SimpleAnimationTransitions : MonoBehaviour {
                     animationComponent.Play("B");
                     break;
                 case AnimationType.SimplePlayable:
-                    simpleAnimationComponent.Play("B");
+                    //simpleAnimationComponent.CrossFade("B", 0.2f);
                     break;
                 case AnimationType.StateMachine:
                     animatorComponent.Play("B");
